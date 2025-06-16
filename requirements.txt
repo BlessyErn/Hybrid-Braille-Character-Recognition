@@ -1,6 +1,6 @@
 # Braille Recognition Requirements
 streamlit==1.32.0
-torch==2.3.0
+torch==2.5.0
 torchvision==0.18.0
 numpy==1.26.4
 opencv-python-headless==4.9.0.80
