@@ -7,10 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1a5IXk2As_FlbSKVz_XBUagEmpLQjnw3R
 """
 
-!pip install streamlit
-
-!pip install gTTS
-
 import streamlit as st
 import numpy as np
 import cv2
@@ -70,17 +66,18 @@ class ViTFeatureExtractor(nn.Module):
 def load_models():
     # Load feature extractors
     cnn = CNNFeatureExtractor()
-    cnn.load_state_dict(torch.load('/content/drive/My Drive/Blessed capstone/cnn_model.pth', map_location='cpu'))
-#    cnn.load_state_dict(torch.load('cnn_model.pth', map_location='cpu'))
+    #cnn.load_state_dict(torch.load('/content/drive/My Drive/Blessed capstone/cnn_model.pth', map_location='cpu'))
+    cnn.load_state_dict(torch.load('cnn_model.pth', map_location='cpu'))
     cnn.eval()
 
     vit = ViTFeatureExtractor()
-    vit.load_state_dict(torch.load('/content/drive/My Drive/Blessed capstone/vit_model.pth', map_location='cpu'))
+    #vit.load_state_dict(torch.load('/content/drive/My Drive/Blessed capstone/vit_model.pth', map_location='cpu'))
+    vit.load_state_dict(torch.load('vit_model.pth', map_location='cpu'))
     vit.eval()
 
     # Load XGBoost classifier
-    xgb_model = joblib.load('/content/drive/My Drive/Blessed capstone/xgboost_cnn_vit_hog_model.pkl')
-   # xgb_model = joblib.load('xgboost_cnn_vit_hog_model.pkl')
+    #xgb_model = joblib.load('/content/drive/My Drive/Blessed capstone/xgboost_cnn_vit_hog_model.pkl')
+    xgb_model = joblib.load('xgboost_cnn_vit_hog_model.pkl')
 
     return cnn, vit, xgb_model
 
