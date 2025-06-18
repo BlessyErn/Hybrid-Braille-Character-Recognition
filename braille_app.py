@@ -10,9 +10,6 @@ from skimage.feature import hog
 import gtts
 from io import BytesIO
 
-from google.colab import drive
-drive.mount('/content/drive')
-
 # Define CNNFeatureExtractor (same as notebook)
 class CNNFeatureExtractor(nn.Module):
     def __init__(self, num_classes=26):
