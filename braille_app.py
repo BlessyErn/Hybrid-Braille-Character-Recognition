@@ -66,11 +66,11 @@ def load_models():
     vit.load_state_dict(torch.load('vit_model.pth', map_location='cpu'))
     vit.eval()
 
-    # Load XGBoost classifier
+    # Load Logistic Regression classifier
     #xgb_model = joblib.load('/content/drive/My Drive/Blessed capstone/xgboost_cnn_vit_hog_model.pkl')
-    xgb_model = joblib.load('xgboost_cnn_vit_hog_model.pkl')
+    lr_model = joblib.load('logistic_regression_cnn_vit_hog.pkl')
 
-    return cnn, vit, xgb_model
+    return cnn, vit, lr_model
 
 # Image transformation pipeline
 transform = transforms.Compose([
@@ -121,7 +121,7 @@ st.write("Upload an image of a Braille character for recognition")
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
 # Load models
-cnn, vit, xgb_model = load_models()
+cnn, vit, lr_model = load_models()
 
 if uploaded_file is not None:
     # Display image
