@@ -132,7 +132,7 @@ if uploaded_file is not None:
     features = extract_features(image)
 
     # Predict
-    prediction = xgb_model.predict([features])[0]
+    prediction = lr_model.predict([features])[0]
     char = braille_to_text[prediction]
 
     st.success(f"Predicted Character: {char.upper()} ({char})")
