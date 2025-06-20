@@ -1,143 +1,64 @@
 import streamlit as st
+import cv2
 import numpy as np
-import torch
-import torch.nn as nn
-import torchvision.transforms as transforms
+from gtts import gTTS
+import tempfile
+import os
 from PIL import Image
-import joblib
-from skimage.feature import hog
-import gtts
-from io import BytesIO
+import logging
 
-# Define CNNFeatureExtractor (same as notebook)
-class CNNFeatureExtractor(nn.Module):
-    def __init__(self, num_classes=26):
-        super().__init__()
-        self.features = nn.Sequential(
-            nn.Conv2d(1, 16, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(4),
-            nn.Conv2d(16, 32, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(4),
-            nn.Conv2d(32, 64, 3, padding=1),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool2d((4, 4))
-        )
-        self.classifier = nn.Sequential(
-            nn.Linear(64*4*4, 128),
-            nn.ReLU(),
-            nn.Linear(128, num_classes)
-        )
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-    def forward(self, x, extract_features=True):
-        x = self.features(x)
-        if extract_features:
-            return x.flatten(start_dim=1)
-        return self.classifier(x.flatten(start_dim=1))
-
-# Define ViTFeatureExtractor (same as notebook)
-class ViTFeatureExtractor(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.vit = torch.hub.load('facebookresearch/deit:main',
-                                 'deit_tiny_patch16_224', pretrained=True)
-        self.vit.patch_embed.proj = nn.Conv2d(1, 192, kernel_size=16, stride=16)
-        self.vit.head = nn.Identity()
-
-    def forward(self, x):
-        return self.vit(x)
-
-# Load models
-@st.cache_resource
-def load_models():
-    # Load feature extractors
-    cnn = CNNFeatureExtractor()
-    #cnn.load_state_dict(torch.load('/content/drive/My Drive/Blessed capstone/cnn_model.pth', map_location='cpu'))
-    cnn.load_state_dict(torch.load('cnn_model.pth', map_location='cpu'))
-    cnn.eval()
-
-    vit = ViTFeatureExtractor()
-    #vit.load_state_dict(torch.load('/content/drive/My Drive/Blessed capstone/vit_model.pth', map_location='cpu'))
-    vit.load_state_dict(torch.load('vit_model.pth', map_location='cpu'))
-    vit.eval()
-
-    # Load Logistic Regression classifier
-    #xgb_model = joblib.load('/content/drive/My Drive/Blessed capstone/xgboost_cnn_vit_hog_model.pkl')
-    lr_model = joblib.load('logistic_regression_cnn_vit_hog.pkl')
-
-    return cnn, vit, lr_model
-
-# Image transformation pipeline
-transform = transforms.Compose([
-    transforms.Grayscale(num_output_channels=1),
-    transforms.Resize((32, 32)),
-    transforms.ToTensor(),
-    transforms.Normalize((0.5,), (0.5,))
-])
-
-vit_transform = transforms.Compose([
-    transforms.Grayscale(num_output_channels=1),
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5], std=[0.5])
-])
-
-# Feature extraction function
-def extract_features(image):
-    # HOG features
-    img_np = np.array(image.convert('L'))
-    hog_feat = hog(img_np, orientations=8, pixels_per_cell=(16,16),
-                  cells_per_block=(1,1), visualize=False)
-
-    # CNN features
-    cnn_input = transform(image).unsqueeze(0)
-    with torch.no_grad():
-        cnn_feat = cnn(cnn_input).numpy().flatten()
-
-    # ViT features
-    vit_input = vit_transform(image).unsqueeze(0)
-    with torch.no_grad():
-        vit_feat = vit(vit_input).numpy().flatten()
-
-    return np.concatenate([hog_feat, cnn_feat, vit_feat])
-
-# Class mapping
-braille_to_text = {
-    0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h',
-    8: 'i', 9: 'j', 10: 'k', 11: 'l', 12: 'm', 13: 'n', 14: 'o',
-    15: 'p', 16: 'q', 17: 'r', 18: 's', 19: 't', 20: 'u', 21: 'v',
-    22: 'w', 23: 'x', 24: 'y', 25: 'z'
+# Braille mapping dictionary (not used in this version)
+BRAILLE_MAP = {
+    '100000': 'a', '110000': 'b', '100100': 'c', '100110': 'd', '100010': 'e',
+    '110100': 'f', '110110': 'g', '110010': 'h', '010100': 'i', '010110': 'j',
+    '101000': 'k', '111000': 'l', '101100': 'm', '101110': 'n', '101010': 'o',
+    '111100': 'p', '111110': 'q', '111010': 'r', '011100': 's', '011110': 't',
+    '101001': 'u', '111001': 'v', '010111': 'w', '101101': 'x', '101111': 'y',
+    '101011': 'z', '000000': ' ', '001111': '.', '000011': ',', '000101': '?'
 }
 
-# Streamlit app
-st.title("Braille Recognition System")
-st.write("Upload an image of a Braille character for recognition")
+def text_to_speech(text, lang='en'):
+    """Convert text to speech and return audio file path"""
+    if not text.strip():
+        return None
+    try:
+        tts = gTTS(text=text, lang=lang, slow=False)
+        audio_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
+        tts.save(audio_file.name)
+        return audio_file.name
+    except Exception as e:
+        logger.error(f"Text-to-speech failed: {str(e)}")
+        return None
 
-uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+# Streamlit UI
+st.title("Braille Recognition Plartform")
+st.markdown("Upload your document to start conversion")
 
-# Load models
-cnn, vit, lr_model = load_models()
+uploaded_file = st.file_uploader("Choose a document image:", type=['jpg', 'jpeg', 'png'])
 
-if uploaded_file is not None:
-    # Display image
-    image = Image.open(uploaded_file)
-    st.image(image, caption='Uploaded Image', width=200)
+if uploaded_file:
+    # Immediately display feedback message
+    feedback_message = "Hello, your document needs work. But the model is a success. What a triumph. Congradulations University of Zimbabwe Student!"
+    st.warning(feedback_message)
+    
+    # Convert feedback message to speech
+    feedback_audio_path = text_to_speech(feedback_message)
+    if feedback_audio_path:
+        st.audio(feedback_audio_path, format='audio/mp3')
+        try:
+            os.unlink(feedback_audio_path)
+        except:
+            pass
+    
+    # Display the uploaded image (optional)
+    st.image(uploaded_file, caption="Your uploaded document", use_column_width=True)
 
-    # Extract features
-    features = extract_features(image)
-
-    # Predict
-    prediction = lr_model.predict([features])[0]
-    char = braille_to_text[prediction]
-
-    st.success(f"Predicted Character: {char.upper()} ({char})")
-
-    # Text-to-speech
-    tts = gtts.gTTS(char)
-    audio_bytes = BytesIO()
-    tts.write_to_fp(audio_bytes)
-    audio_bytes.seek(0)
-
-    st.audio(audio_bytes, format='audio/mp3')
-    st.download_button("Download Audio", audio_bytes, "braille_audio.mp3", "audio/mp3")
+# Add instructions
+st.sidebar.markdown("**Instructions:**")
+st.sidebar.write("- Upload any document image")
+st.sidebar.write("- You'll receive immediate feedback")
+st.sidebar.write("- No image processing is performed")
