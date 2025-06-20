@@ -1,11 +1,5 @@
-# Braille Recognition Requirements
-streamlit==1.32.0
-torch==2.7.1
-torchvision==0.22.1
+streamlit==1.34.0
+opencv-python-headless==4.8.0.76
 numpy==1.26.4
-opencv-python-headless==4.9.0.80
-scikit-image==0.22.0
-scikit-learn==1.4.1.post1
-gtts==2.5.1
-joblib==1.3.2
-Pillow==10.4.0
+gTTS==2.4.0
+Pillow==10.0.0
